@@ -204,7 +204,7 @@ const EMPS=[
 let emp=null,hasSig=false,hasRead=false,sigURL=null,signedAt=null;
 let canvas,ctx,drawing=false,lx,ly;
 
-const p=new URLSearchParams(location.search);
+const p=new URLSearchParams(location.hash.slice(1));
 emp=EMPS.find(e=>e.id===parseInt(p.get('emp')||'0'));
 if(!emp){document.getElementById('errorScreen').style.display='block';}
 else{
