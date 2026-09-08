@@ -191,21 +191,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;backg
 <div class="toast" id="toast"></div>
 
 <script>
-const SB_URL='https://fyxvejnvzflxppqrhlzt.supabase.co', SB_KEY='sb_publishable_k9GEEEmqiYnuBPFqsQuvIQ_YGjweOSh';
-const EMPS=[
-  {id:26,name:'姚奇敏',color:'#FF6B1A'},{id:28,name:'賴偉志',color:'#22C55E'},
-  {id:29,name:'韓小錦',color:'#60A5FA'},{id:30,name:'彭金花',color:'#A78BFA'},
-  {id:31,name:'李文彪',color:'#FB923C'},{id:32,name:'莫家文',color:'#F43F5E'},
-  {id:33,name:'陳文軒',color:'#06B6D4'},{id:43,name:'Simon 曾遠宗',color:'#84CC16'},
-  {id:44,name:'Kim',color:'#E879F9'},{id:45,name:'耿華成',color:'#F0C000'},
-  {id:46,name:'譚敏銳',color:'#22C55E'},{id:47,name:'吳紹鵬',color:'#60A5FA'},
-  {id:48,name:'蔡貴明',color:'#A78BFA'},{id:51,name:'李國森',color:'#FB923C'},
-];
+
+
 let emp=null,hasSig=false,hasRead=false,sigURL=null,signedAt=null;
 let canvas,ctx,drawing=false,lx,ly;
 
 const p=new URLSearchParams(location.hash.slice(1));
-emp=EMPS.find(e=>e.id===parseInt(p.get('emp')||'0'));
+emp=EMPLOYEES.find(e=>e.id===parseInt(p.get('emp')||'0'));
 if(!emp){document.getElementById('errorScreen').style.display='block';}
 else{
   document.getElementById('mainContent').style.display='block';
@@ -291,6 +283,23 @@ async function downloadPDF(){
 }
 
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+const SB_URL='https://fyxvejnvzflxppqrhlzt.supabase.co',SB_KEY='sb_publishable_k9GEEEmqiYnuBPFqsQuvIQ_YGjweOSh';
+const COLORS=['#FF6B1A', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#F43F5E', '#06B6D4', '#84CC16', '#E879F9', '#F0C000', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#FF6B1A', '#22C55E'];
+let EMPLOYEES=[];
+
+async function loadEmployees(){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/employees?select=id,name,phone&order=id.asc`,
+      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+    const data=await r.json();
+    if(Array.isArray(data)){
+      EMPLOYEES=data.map((e,i)=>({id:e.id,name:e.name,phone:e.phone||'',color:COLORS[i%COLORS.length]}));
+    }
+  }catch(e){}
+  init();
+}
+loadEmployees();
 </script>
 </body>
 </html>
