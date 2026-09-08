@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>俊輝電梯 — 安全守則簽署</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;background:#0d0f12;color:#e8eaf0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px}
+.header{text-align:center;margin-bottom:24px;padding-top:12px}
+.company{font-size:17px;font-weight:700;color:#f0c000}
+.subtitle{font-size:12px;color:#555d6e;margin-top:3px}
+.card{background:#13161c;border:1px solid #1e2330;border-radius:14px;padding:20px;width:100%;max-width:480px;margin-bottom:14px}
+.emp-badge{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding:14px;background:#0d0f12;border-radius:10px;border:1px solid #2a3045}
+.avatar{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;flex-shrink:0}
+.section-title{font-size:12px;font-weight:700;color:#f0c000;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px}
+.safety-box{background:#0d0f12;border:1px solid #2a3045;border-radius:10px;padding:14px;max-height:300px;overflow-y:auto;font-size:12px;line-height:1.8;color:#9aa0b4;margin-bottom:14px;white-space:pre-wrap}
+.progress-bar{height:4px;background:#1e2330;border-radius:2px;margin-bottom:12px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#f0c000,#22c55e);transition:width .3s;border-radius:2px}
+.read-badge{display:none;align-items:center;gap:8px;background:#0a1a0a;border:1px solid #22c55e55;border-radius:8px;padding:8px 12px;font-size:12px;color:#22c55e;margin-bottom:14px}
+.checkbox-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;cursor:pointer}
+.checkbox-row input{width:20px;height:20px;accent-color:#f0c000;flex-shrink:0;margin-top:2px;cursor:pointer}
+.checkbox-row span{font-size:13px;line-height:1.6;color:#9aa0b4}
+.sig-wrap{border:2px dashed #2a3045;border-radius:10px;margin-bottom:10px;background:#080a0d;overflow:hidden}
+.sig-wrap.has-sig{border-color:#f0c00066}
+.sig-wrap canvas{display:block;width:100%;touch-action:none}
+.sig-hint{font-size:11px;color:#3a4255;text-align:center;margin-bottom:12px}
+.row{display:flex;gap:8px;margin-bottom:0}
+.btn{flex:1;border-radius:8px;padding:11px;cursor:pointer;font-size:13px;font-weight:700;border:none}
+.btn-ghost{background:#1e2330;border:1px solid #2a3045;color:#9aa0b4}
+.btn-primary{background:#f0c000;color:#0d0f12}
+.btn-primary:disabled{opacity:0.4;cursor:not-allowed}
+.btn-pdf{width:100%;background:#1e2330;border:1px solid #f0c00044;color:#f0c000;border-radius:8px;padding:12px;cursor:pointer;font-size:14px;font-weight:700;margin-top:10px}
+.success{text-align:center;padding:24px 16px}
+.tick{font-size:56px;margin-bottom:12px}
+.sum{background:#0d0f12;border:1px solid #1e2330;border-radius:10px;padding:14px;margin:14px 0;text-align:left}
+.sum-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px solid #1e2330}
+.sum-row:last-child{border-bottom:none}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#e05c5c;color:#fff;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;z-index:999}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="font-size:32px;margin-bottom:6px">🛡️</div>
+  <div class="company">俊輝電梯工程有限公司</div>
+  <div class="subtitle">安全守則電子簽署</div>
+</div>
+
+<div id="errorScreen" style="display:none;text-align:center;padding:60px 20px">
+  <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+  <div style="font-size:18px;font-weight:700;color:#e05c5c;margin-bottom:8px">連結無效</div>
+  <div style="color:#555d6e;font-size:14px">請向主管索取正確嘅簽署連結</div>
+</div>
+
+<div id="mainContent" style="width:100%;max-width:480px;display:none">
+  <div class="card">
+    <div class="emp-badge">
+      <div class="avatar" id="empAvatar">?</div>
+      <div>
+        <div style="font-size:17px;font-weight:700" id="empName">載入中...</div>
+        <div style="font-size:11px;color:#555d6e;margin-top:2px">電梯技工｜安全守則簽署</div>
+      </div>
+    </div>
+
+    <div class="section-title">📋 安全守則全文（請滑至底部）</div>
+    <div class="progress-bar"><div class="progress-fill" id="pFill" style="width:0%"></div></div>
+    <div class="safety-box" id="safetyBox" onscroll="onScroll()">升降機工程公司｜安全培訓及承諾書
+最後更新：2026年9月2日
+
+一、目的
+為確保所有從事升降機及自動梯安裝、維修、保養、改造及相關工程之員工，正確認識並遵守香港最新之安全法例、機電署（EMSD）實務守則及公司安全管理制度，預防工業意外，保障員工、客戶及公眾安全。
+
+二、適用範圍
+本文件適用於所有涉及以下工作之員工、分判、技術員及實習人員：
+• 升降機／自動梯安裝、測試及調試
+• 維修、保養及故障緊急處理
+• Modernisation（改造工程）
+• 機房、井道、轎頂、底坑作業
+• 電氣、機械相關作業
+• 分判人員及訪客安全交底
+
+三、法例、標準及實務守則
+（一）香港法例
+• 《升降機及自動梯條例》（Cap.618）
+• 《升降機及自動梯（安全）規例》
+• 《職業安全及健康條例》（Cap.509）
+• 《建築地盤（安全）規例》
+• 《電力條例》（Cap.406）
+• 《危險品條例》及相關規例
+
+（二）機電署（EMSD）實務守則與指引
+• Code of Practice for Lift Works
+• Code of Practice for Escalator Works
+• EMSD Safety Guidelines for Lift and Escalator Works
+• RLE / RCP / REW 資格要求
+
+四、培訓內容
+
+1）基本安全
+• 危害辨識（HAZID）與風險評估（HIRA）
+• 個人防護裝備（PPE）選擇、檢查及合規性
+• 上鎖／掛牌（LOTO）程序
+• 安全電壓（110V / 55V）及 RCD 使用要求
+
+2）升降機／自動梯專項安全
+• 機房：出入登記、鎖匙管理、通風照明
+• 井道及底坑：進入許可、通訊、通風、氣體偵測
+• 轎頂作業：Fall Protection、維修模式確認、禁止帶電作業
+• 緊急程序：緊急停車、釋放乘客、手動盤車
+
+3）電氣與機械安全
+• 電源隔離（LOTO）＋測試驗電
+• 漏電保護器、保險絲、斷路器應用
+• 移動機件夾捲危害防護
+
+4）特殊工序（PTW）
+• 熱工處理（焊接、切割）
+• 密閉空間作業（底坑／井道）
+• 高處作業、夜間／單人作業限制
+• 惡劣天氣工作安排
+
+5）事故與應變
+• 事故、近乎事故（Near Miss）即時上報
+• 危殆事故通報 EMSD
+• 急救、滅火器使用
+• 意外調查（根因分析 RCA）
+
+6）行為與合規
+• 酒精與藥物政策：零容忍
+• 手機及分心使用禁令
+• 拒絕不安全工作權利（No Reprisal）
+
+五、培訓頻率
+• 新入職：至少 6 小時入職安全培訓
+• 現職：每年最少 8 小時再培訓
+• 高風險工序：每 6 個月複訓
+• 記錄保存期限：至少 5 年
+
+六、個人防護裝備（PPE）最低要求
+• 安全帽（須檢查有效期及撞擊痕）
+• 防滑鋼包頭安全鞋、高可視背心
+• 防割手套／電工手套（按工序）
+• 高處作業：全身式安全帶、雙掛繩
+
+七、安全違規投訴渠道
+• 勞工處職業安全部：2815 0678
+• 機電工程署：1823
+• 公司承諾：不得對合法舉報員工進行任何形式報復
+
+八、員工承諾（正式條款）
+本人確認：
+（一）已細閱並明白《升降機及自動梯條例》及相關規例之要求；
+（二）同意遵守公司安全管理制度（SOP、SMP、PTW）及本守則所有條款；
+（三）明白違反安全規例可導致工傷、法律責任及紀律處分；
+（四）同意發現不安全情況時，立即停工並向主管報告；
+（五）確認本人具備執行所分配工作之相關資格及牌照；
+（六）明白本承諾書簽署屬法律文件，有效期六個月，屆滿須重新簽署。</div>
+
+    <div class="read-badge" id="readBadge">✅ 已閱讀全文，請在下方簽名確認</div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="agreeCheck" onchange="updateState()">
+      <span>本人已細閱並完全理解以上安全守則全文，同意遵守所有條款，並確認本人具備執行所分配工作之相關資格。</span>
+    </label>
+
+    <div class="section-title">✍️ 電子簽名</div>
+    <div class="sig-wrap" id="sigWrap">
+      <canvas id="sigCanvas" height="160"></canvas>
+    </div>
+    <div class="sig-hint">請用手指或滑鼠在上方簽名</div>
+
+    <div class="row">
+      <button class="btn btn-ghost" onclick="clearSig()">🗑 清除簽名</button>
+      <button class="btn btn-primary" id="submitBtn" onclick="doSubmit()" disabled>✅ 確認簽署</button>
+    </div>
+  </div>
+</div>
+
+<div id="successScreen" style="display:none;width:100%;max-width:480px">
+  <div class="card success">
+    <div class="tick">✅</div>
+    <h2 style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">簽署完成！</h2>
+    <div class="sum" id="sumBox"></div>
+    <p style="color:#9aa0b4;font-size:13px">此簽署紀錄已儲存，有效期六個月</p>
+    <button class="btn-pdf" onclick="downloadPDF()">📄 下載 PDF 簽署紀錄</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SB_URL='https://fyxvejnvzflxppqrhlzt.supabase.co', SB_KEY='sb_publishable_k9GEEEmqiYnuBPFqsQuvIQ_YGjweOSh';
+const EMPS=[
+  {id:26,name:'姚奇敏',color:'#FF6B1A'},{id:28,name:'賴偉志',color:'#22C55E'},
+  {id:29,name:'韓小錦',color:'#60A5FA'},{id:30,name:'彭金花',color:'#A78BFA'},
+  {id:31,name:'李文彪',color:'#FB923C'},{id:32,name:'莫家文',color:'#F43F5E'},
+  {id:33,name:'陳文軒',color:'#06B6D4'},{id:43,name:'Simon 曾遠宗',color:'#84CC16'},
+  {id:44,name:'Kim',color:'#E879F9'},{id:45,name:'耿華成',color:'#F0C000'},
+  {id:46,name:'譚敏銳',color:'#22C55E'},{id:47,name:'吳紹鵬',color:'#60A5FA'},
+  {id:48,name:'蔡貴明',color:'#A78BFA'},{id:51,name:'李國森',color:'#FB923C'},
+];
+let emp=null,hasSig=false,hasRead=false,sigURL=null,signedAt=null;
+let canvas,ctx,drawing=false,lx,ly;
+
+const p=new URLSearchParams(location.search);
+emp=EMPS.find(e=>e.id===parseInt(p.get('emp')||'0'));
+if(!emp){document.getElementById('errorScreen').style.display='block';}
+else{
+  document.getElementById('mainContent').style.display='block';
+  document.getElementById('empName').textContent=emp.name;
+  const av=document.getElementById('empAvatar');
+  av.textContent=emp.name[0];av.style.background=emp.color+'33';
+  av.style.color=emp.color;av.style.border='2px solid '+emp.color+'66';
+  initCanvas();
+}
+
+function onScroll(){
+  const b=document.getElementById('safetyBox');
+  const r=b.scrollTop/(b.scrollHeight-b.clientHeight);
+  document.getElementById('pFill').style.width=Math.min(100,r*100)+'%';
+  if(r>0.95&&!hasRead){hasRead=true;document.getElementById('readBadge').style.display='flex';}
+  updateState();
+}
+function updateState(){
+  document.getElementById('submitBtn').disabled=!(document.getElementById('agreeCheck').checked&&hasSig);
+}
+function initCanvas(){
+  canvas=document.getElementById('sigCanvas');
+  ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*devicePixelRatio||440*devicePixelRatio;
+  canvas.height=160*devicePixelRatio;
+  ctx.scale(devicePixelRatio,devicePixelRatio);
+  ctx.strokeStyle='#f0c000';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
+  const pos=e=>{const r=canvas.getBoundingClientRect();const s=e.touches?e.touches[0]:e;return[s.clientX-r.left,s.clientY-r.top];};
+  canvas.addEventListener('mousedown',e=>{drawing=true;[lx,ly]=pos(e);});
+  canvas.addEventListener('mousemove',e=>{if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];});
+  canvas.addEventListener('mouseup',()=>{drawing=false;chkSig();});
+  canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lx,ly]=pos(e);},{passive:false});
+  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];},{passive:false});
+  canvas.addEventListener('touchend',()=>{drawing=false;chkSig();});
+}
+function chkSig(){const d=ctx.getImageData(0,0,canvas.width,canvas.height).data;hasSig=d.some((v,i)=>i%4===3&&v>0);if(hasSig)document.getElementById('sigWrap').classList.add('has-sig');updateState();}
+function clearSig(){ctx.clearRect(0,0,canvas.width,canvas.height);hasSig=false;document.getElementById('sigWrap').classList.remove('has-sig');updateState();}
+
+async function doSubmit(){
+  const btn=document.getElementById('submitBtn');
+  btn.disabled=true;btn.textContent='儲存中...';
+  sigURL=canvas.toDataURL('image/png');
+  signedAt=new Date().toISOString();
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/safety_signs`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({employee_name:emp.name,signed_at:signedAt,signature_data:sigURL})});
+    if(!r.ok)throw new Error();
+    document.getElementById('mainContent').style.display='none';
+    document.getElementById('successScreen').style.display='block';
+    const exp=new Date(signedAt);exp.setMonth(exp.getMonth()+6);
+    document.getElementById('sumBox').innerHTML=`
+      <div class="sum-row"><span style="color:#555d6e">姓名</span><span style="font-weight:600">${emp.name}</span></div>
+      <div class="sum-row"><span style="color:#555d6e">簽署日期</span><span style="font-weight:600">${signedAt.slice(0,10)}</span></div>
+      <div class="sum-row"><span style="color:#555d6e">簽署時間</span><span style="font-weight:600">${signedAt.slice(11,16)} HKT</span></div>
+      <div class="sum-row"><span style="color:#555d6e">有效期至</span><span style="font-weight:600;color:#f0c000">${exp.toISOString().slice(0,10)}</span></div>`;
+  }catch(e){btn.disabled=false;btn.textContent='✅ 確認簽署';toast('❌ 儲存失敗，請重試');}
+}
+
+async function downloadPDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
+  doc.setFillColor(13,15,18);doc.rect(0,0,210,297,'F');
+  doc.setTextColor(240,192,0);doc.setFontSize(15);doc.setFont('helvetica','bold');
+  doc.text('Jun Hui Elevator Engineering Co. Ltd.',105,18,{align:'center'});
+  doc.setFontSize(11);doc.text('Safety Guidelines — Employee Acknowledgement',105,26,{align:'center'});
+  doc.setDrawColor(240,192,0);doc.setLineWidth(0.4);doc.line(20,30,190,30);
+  doc.setTextColor(232,234,240);doc.setFontSize(10);doc.setFont('helvetica','normal');
+  const exp=new Date(signedAt);exp.setMonth(exp.getMonth()+6);
+  let y=40;
+  [['Employee',emp.name],['Signed Date',signedAt.slice(0,10)],['Signed Time',signedAt.slice(11,16)+' HKT'],['Valid Until',exp.toISOString().slice(0,10)],['Document','Safety Guidelines v2026-09-02']].forEach(([l,v])=>{
+    doc.setTextColor(150,160,180);doc.text(l+':',20,y);
+    doc.setTextColor(232,234,240);doc.text(v,75,y);y+=8;
+  });
+  doc.setDrawColor(42,48,69);doc.line(20,y,190,y);y+=8;
+  doc.setTextColor(240,192,0);doc.setFontSize(11);doc.setFont('helvetica','bold');
+  doc.text('Employee Signature:',20,y);y+=6;
+  doc.setDrawColor(42,48,69);doc.setLineWidth(0.3);doc.rect(20,y,170,38);
+  if(sigURL)try{doc.addImage(sigURL,'PNG',22,y+2,166,34);}catch(e){}
+  y+=44;
+  doc.setTextColor(80,90,110);doc.setFontSize(8);doc.setFont('helvetica','normal');
+  doc.text('Electronically signed — legally binding document',105,y,{align:'center'});
+  doc.text('Jun Hui Safety Portal | Generated: '+new Date().toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong'}),105,y+5,{align:'center'});
+  doc.save(`${emp.name}_Safety_${signedAt.slice(0,10)}.pdf`);
+}
+
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+</script>
+</body>
+</html>
