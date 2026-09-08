@@ -43,8 +43,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;backg
 </head>
 <body>
 <div class="header">
-  <div style="font-size:32px;margin-bottom:6px">🛡️</div>
-  <div class="company">俊輝電梯工程有限公司</div>
+  <div style="font-size:32px;margin-bottom:6px">&#x1F6E1;</div>
+  <div class="company">巨揚工程有限公司</div>
   <div class="subtitle">安全守則電子簽署</div>
 </div>
 
@@ -268,7 +268,7 @@ async function downloadPDF(){
   const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
   doc.setFillColor(13,15,18);doc.rect(0,0,210,297,'F');
   doc.setTextColor(240,192,0);doc.setFontSize(15);doc.setFont('helvetica','bold');
-  doc.text('Jun Hui Elevator Engineering Co. Ltd.',105,18,{align:'center'});
+  doc.text('Keung Yeung Engineering Co. Ltd.',105,18,{align:'center'});
   doc.setFontSize(11);doc.text('Safety Guidelines — Employee Acknowledgement',105,26,{align:'center'});
   doc.setDrawColor(240,192,0);doc.setLineWidth(0.4);doc.line(20,30,190,30);
   doc.setTextColor(232,234,240);doc.setFontSize(10);doc.setFont('helvetica','normal');
@@ -286,7 +286,7 @@ async function downloadPDF(){
   y+=44;
   doc.setTextColor(80,90,110);doc.setFontSize(8);doc.setFont('helvetica','normal');
   doc.text('Electronically signed — legally binding document',105,y,{align:'center'});
-  doc.text('Jun Hui Safety Portal | Generated: '+new Date().toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong'}),105,y+5,{align:'center'});
+  doc.text('Keung Yeung Safety Portal | Generated: '+new Date().toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong'}),105,y+5,{align:'center'});
   doc.save(`${emp.name}_Safety_${signedAt.slice(0,10)}.pdf`);
 }
 
