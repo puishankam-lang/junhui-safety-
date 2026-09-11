@@ -241,18 +241,23 @@ async function loadEmployees() {
 
 function init() {
   const p = new URLSearchParams(location.hash.slice(1));
-  const empName = decodeURIComponent(p.get('emp') || '');
-  console.log('[INIT]', empName, 'employees:', employees.length);
+  const raw = decodeURIComponent(p.get('emp') || '');
+  console.log('[INIT] emp =', raw, '| employees:', employees.length);
   
-  if (!empName) {
+  if (!raw) {
     document.getElementById('errorScreen').style.display='block';
     return;
   }
   
-  emp = employees.find(e => e.name === empName);
+  // 支援 #emp=44 (ID) 同 #emp=Kim (名字) 兩種格式
+  const asId = parseInt(raw, 10);
+  emp = !isNaN(asId) && String(asId) === raw
+    ? employees.find(e => e.id === asId)
+    : employees.find(e => e.name === raw);
+  
   if (!emp) {
     document.getElementById('errorScreen').style.display='block';
-    document.getElementById('errorMsg').textContent=`搵唔到員工: ${empName}`;
+    document.getElementById('errorMsg').textContent=`搵唔到員工: ${raw}`;
     return;
   }
   
@@ -323,9 +328,11 @@ async function doSubmit() {
   btn.textContent = '儲存中...';
   sigURL = canvas.toDataURL('image/png');
   signedAt = new Date().toISOString();
+  const validUntil = new Date(signedAt);
+  validUntil.setMonth(validUntil.getMonth() + 6);
   
   try {
-    const resp = await fetch(`${SB_URL}/rest/v1/safety_signs`, {
+    const resp = await fetch(`${SB_URL}/rest/v1/safety_acknowledgments`, {
       method: 'POST',
       headers: {
         'apikey': SB_KEY,
@@ -333,18 +340,23 @@ async function doSubmit() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        employee_name: emp.name,
+        employee_id: emp.id,
         signed_at: signedAt,
-        signature_data: sigURL
+        signature_data: sigURL,
+        valid_until: validUntil.toISOString().slice(0, 10),
+        document_version: '2026-09-02',
+        ack_type: 'safety_guidelines'
       })
     });
     
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (!resp.ok) {
+      const detail = await resp.text();
+      throw new Error(`HTTP ${resp.status} — ${detail}`);
+    }
     
     document.getElementById('mainContent').style.display='none';
     document.getElementById('successScreen').style.display='block';
-    const exp = new Date(signedAt);
-    exp.setMonth(exp.getMonth() + 6);
+    const exp = validUntil;
     document.getElementById('sumBox').innerHTML = `
       <div class="sum-row"><span style="color:#555d6e">姓名</span><span style="font-weight:600">${emp.name}</span></div>
       <div class="sum-row"><span style="color:#555d6e">簽署日期</span><span style="font-weight:600">${signedAt.slice(0,10)}</span></div>
