@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>俊輝電梯 — 安全守則簽署</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;background:#0d0f12;color:#e8eaf0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px}
@@ -50,8 +51,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;backg
 
 <div id="errorScreen" style="display:none;text-align:center;padding:60px 20px">
   <div style="font-size:48px;margin-bottom:16px">⚠️</div>
-  <div style="font-size:18px;font-weight:700;color:#e05c5c;margin-bottom:8px">連結無效</div>
-  <div style="color:#555d6e;font-size:14px">請向主管索取正確嘅簽署連結</div>
+  <div style="font-size:18px;font-weight:700;color:#e05c5c;margin-bottom:8px">連結無效或系統錯誤</div>
+  <div style="color:#555d6e;font-size:14px" id="errorMsg">請向主管索取正確嘅簽署連結</div>
 </div>
 
 <div id="mainContent" style="width:100%;max-width:480px;display:none">
@@ -192,20 +193,48 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;backg
 
 <script>
 
-
 let emp=null,hasSig=false,hasRead=false,sigURL=null,signedAt=null;
 let canvas,ctx,drawing=false,lx,ly;
 
-const p=new URLSearchParams(location.hash.slice(1));
-emp=EMPLOYEES.find(e=>e.id===parseInt(p.get('emp')||'0'));
-if(!emp){document.getElementById('errorScreen').style.display='block';}
-else{
-  document.getElementById('mainContent').style.display='block';
-  document.getElementById('empName').textContent=emp.name;
-  const av=document.getElementById('empAvatar');
-  av.textContent=emp.name[0];av.style.background=emp.color+'33';
-  av.style.color=emp.color;av.style.border='2px solid '+emp.color+'66';
-  initCanvas();
+const SB_URL='https://fyxvejnvzflxppqrhlzt.supabase.co';
+const SB_KEY='sb_publishable_k9GEEEmqiYnuBPFqsQuvIQ_YGjweOSh';
+const COLORS=['#FF6B1A', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#F43F5E', '#06B6D4', '#84CC16', '#E879F9', '#F0C000', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#FF6B1A', '#22C55E'];
+let EMPLOYEES=[];
+
+// 初始化 Supabase client
+const { createClient } = window.supabase;
+const supabase = createClient(SB_URL, SB_KEY);
+
+function init(){
+  console.log('[INIT] Starting initialization...');
+  const p=new URLSearchParams(location.hash.slice(1));
+  const empName=decodeURIComponent(p.get('emp')||'');
+  console.log(`[INIT] URL param emp="${empName}", total employees=${EMPLOYEES.length}`);
+  
+  if(!empName){
+    console.log('[ERROR] 冇員工名字喺 URL');
+    document.getElementById('errorScreen').style.display='block';
+    document.getElementById('errorMsg').textContent='請向主管索取簽署連結';
+    return;
+  }
+  
+  emp=EMPLOYEES.find(e=>e.name===empName);
+  
+  if(!emp){
+    console.log(`[ERROR] 搵唔到員工: "${empName}". Available: ${EMPLOYEES.map(e=>e.name).join(', ')}`);
+    document.getElementById('errorScreen').style.display='block';
+    document.getElementById('errorMsg').textContent=`搵唔到員工: ${empName}`;
+  } else {
+    console.log(`[SUCCESS] 搵到員工: ${emp.name}`);
+    document.getElementById('mainContent').style.display='block';
+    document.getElementById('empName').textContent=emp.name;
+    const av=document.getElementById('empAvatar');
+    av.textContent=emp.name[0];
+    av.style.background=emp.color+'33';
+    av.style.color=emp.color;
+    av.style.border='2px solid '+emp.color+'66';
+    initCanvas();
+  }
 }
 
 function onScroll(){
@@ -215,9 +244,11 @@ function onScroll(){
   if(r>0.95&&!hasRead){hasRead=true;document.getElementById('readBadge').style.display='flex';}
   updateState();
 }
+
 function updateState(){
   document.getElementById('submitBtn').disabled=!(document.getElementById('agreeCheck').checked&&hasSig);
 }
+
 function initCanvas(){
   canvas=document.getElementById('sigCanvas');
   ctx=canvas.getContext('2d');
@@ -233,7 +264,9 @@ function initCanvas(){
   canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];},{passive:false});
   canvas.addEventListener('touchend',()=>{drawing=false;chkSig();});
 }
+
 function chkSig(){const d=ctx.getImageData(0,0,canvas.width,canvas.height).data;hasSig=d.some((v,i)=>i%4===3&&v>0);if(hasSig)document.getElementById('sigWrap').classList.add('has-sig');updateState();}
+
 function clearSig(){ctx.clearRect(0,0,canvas.width,canvas.height);hasSig=false;document.getElementById('sigWrap').classList.remove('has-sig');updateState();}
 
 async function doSubmit(){
@@ -242,8 +275,16 @@ async function doSubmit(){
   sigURL=canvas.toDataURL('image/png');
   signedAt=new Date().toISOString();
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/safety_signs`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({employee_name:emp.name,signed_at:signedAt,signature_data:sigURL})});
-    if(!r.ok)throw new Error();
+    const { error } = await supabase
+      .from('safety_signs')
+      .insert([{
+        employee_name: emp.name,
+        signed_at: signedAt,
+        signature_data: sigURL
+      }]);
+    
+    if(error) throw error;
+    
     document.getElementById('mainContent').style.display='none';
     document.getElementById('successScreen').style.display='block';
     const exp=new Date(signedAt);exp.setMonth(exp.getMonth()+6);
@@ -252,7 +293,11 @@ async function doSubmit(){
       <div class="sum-row"><span style="color:#555d6e">簽署日期</span><span style="font-weight:600">${signedAt.slice(0,10)}</span></div>
       <div class="sum-row"><span style="color:#555d6e">簽署時間</span><span style="font-weight:600">${signedAt.slice(11,16)} HKT</span></div>
       <div class="sum-row"><span style="color:#555d6e">有效期至</span><span style="font-weight:600;color:#f0c000">${exp.toISOString().slice(0,10)}</span></div>`;
-  }catch(e){btn.disabled=false;btn.textContent='✅ 確認簽署';toast('❌ 儲存失敗，請重試');}
+  }catch(e){
+    console.error('[SUBMIT ERROR]',e.message);
+    btn.disabled=false;btn.textContent='✅ 確認簽署';
+    toast('❌ 儲存失敗，請重試');
+  }
 }
 
 async function downloadPDF(){
@@ -284,22 +329,41 @@ async function downloadPDF(){
 
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 
-const SB_URL='https://fyxvejnvzflxppqrhlzt.supabase.co',SB_KEY='sb_publishable_k9GEEEmqiYnuBPFqsQuvIQ_YGjweOSh';
-const COLORS=['#FF6B1A', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#F43F5E', '#06B6D4', '#84CC16', '#E879F9', '#F0C000', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#FF6B1A', '#22C55E'];
-let EMPLOYEES=[];
-
 async function loadEmployees(){
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/employees?select=id,name,phone&order=id.asc`,
-      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
-    const data=await r.json();
-    if(Array.isArray(data)){
-      EMPLOYEES=data.map((e,i)=>({id:e.id,name:e.name,phone:e.phone||'',color:COLORS[i%COLORS.length]}));
+    console.log('[LOAD] Fetching employees from Supabase using SDK...');
+    
+    const { data, error } = await supabase
+      .from('employees')
+      .select('id,name,phone')
+      .order('id', { ascending: true });
+    
+    if(error) throw error;
+    
+    console.log(`[LOAD] Received ${data?.length || 0} employee records`);
+    
+    if(Array.isArray(data) && data.length > 0){
+      EMPLOYEES = data.map((e, i) => ({
+        id: e.id,
+        name: e.name,
+        phone: e.phone || '',
+        color: COLORS[i % COLORS.length]
+      }));
+      console.log(`[LOAD] Loaded employees: ${EMPLOYEES.map(e => e.name).join(', ')}`);
+    } else {
+      console.log('[LOAD] Employees table is empty');
+      EMPLOYEES = [];
     }
-  }catch(e){}
+  }catch(e){
+    console.error('[LOAD ERROR]', e.message);
+    EMPLOYEES = [];
+  }
   init();
 }
+
+// 啟動程式
 loadEmployees();
+
 </script>
 </body>
 </html>
