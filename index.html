@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>俊輝電梯 — 安全守則簽署</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;background:#0d0f12;color:#e8eaf0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px}
@@ -371,37 +372,85 @@ async function doSubmit() {
 }
 
 async function downloadPDF() {
-  const {jsPDF} = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFillColor(13, 15, 18);
-  doc.rect(0, 0, 210, 297, 'F');
-  doc.setTextColor(240, 192, 0);
-  doc.setFontSize(15);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Keung Yeung Engineering Co. Ltd.', 105, 18, {align:'center'});
-  doc.setFontSize(11);
-  doc.text('Safety Acknowledgement', 105, 26, {align:'center'});
-  doc.setDrawColor(240, 192, 0);
-  doc.line(20, 30, 190, 30);
-  
-  doc.setTextColor(232, 234, 240);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
   const exp = new Date(signedAt);
   exp.setMonth(exp.getMonth() + 6);
-  
-  let y = 40;
-  [['Employee', emp.name], ['Date', signedAt.slice(0, 10)], ['Time', signedAt.slice(11, 16) + ' HKT'], ['Valid Until', exp.toISOString().slice(0, 10)]].forEach(([l, v]) => {
-    doc.setTextColor(150, 160, 180);
-    doc.text(l + ':', 20, y);
-    doc.setTextColor(232, 234, 240);
-    doc.text(v, 75, y);
-    y += 8;
-  });
-  
-  if (sigURL) doc.addImage(sigURL, 'PNG', 20, y + 10, 170, 40);
-  
-  doc.save(`${emp.name}_Safety_${signedAt.slice(0, 10)}.pdf`);
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;padding:56px 64px;background:#ffffff;color:#111;font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Microsoft JhengHei",sans-serif;box-sizing:border-box;';
+  sheet.innerHTML = `
+    <div style="text-align:center;border-bottom:3px solid #b8860b;padding-bottom:18px;margin-bottom:28px">
+      <div style="font-size:26px;font-weight:800;letter-spacing:2px;color:#111">巨揚工程有限公司</div>
+      <div style="font-size:13px;color:#666;margin-top:4px">Keung Yeung Engineering Co. Ltd.</div>
+      <div style="font-size:17px;font-weight:700;margin-top:14px;color:#111">安全守則培訓及承諾書</div>
+      <div style="font-size:12px;color:#666;margin-top:3px">Safety Guidelines Training &amp; Acknowledgement</div>
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:28px">
+      <tr>
+        <td style="padding:9px 0;color:#666;width:120px">員工姓名</td>
+        <td style="padding:9px 0;font-weight:700;font-size:16px">${emp.name}</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 0;color:#666">簽署日期</td>
+        <td style="padding:9px 0;font-weight:600">${signedAt.slice(0,10)}　${signedAt.slice(11,16)} HKT</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 0;color:#666">有效期至</td>
+        <td style="padding:9px 0;font-weight:700;color:#b8860b">${exp.toISOString().slice(0,10)}</td>
+      </tr>
+      <tr>
+        <td style="padding:9px 0;color:#666">文件版本</td>
+        <td style="padding:9px 0">安全守則 2026-09-02</td>
+      </tr>
+    </table>
+
+    <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid #ddd">員工承諾條款</div>
+    <div style="font-size:13px;line-height:2.0;color:#222;margin-bottom:30px">
+      本人 <span style="font-weight:700;border-bottom:1px solid #111;padding:0 10px">${emp.name}</span> 確認：<br>
+      （一）已細閱並明白《升降機及自動梯條例》（Cap.618）及相關規例之要求；<br>
+      （二）同意遵守公司安全管理制度（SOP、SMP、PTW）及安全守則所有條款；<br>
+      （三）明白違反安全規例可導致工傷、法律責任及紀律處分；<br>
+      （四）同意發現不安全情況時，立即停工並向主管報告；<br>
+      （五）確認本人具備執行所分配工作之相關資格及牌照；<br>
+      （六）明白本承諾書簽署屬法律文件，有效期六個月，屆滿須重新簽署。
+    </div>
+
+    <div style="font-size:13px;color:#222;margin-bottom:10px;font-weight:600">
+      本人已細閱並完全理解上述安全守則全文，並以下方簽名確認同意遵守所有條款。
+    </div>
+
+    <div style="margin-top:22px">
+      <div style="font-size:13px;color:#666;margin-bottom:6px">員工簽名 Employee Signature</div>
+      <div style="border:1px solid #bbb;height:120px;display:flex;align-items:center;justify-content:center;background:#fafafa">
+        ${sigURL ? `<img src="${sigURL}" style="max-height:110px;max-width:96%;filter:invert(1) hue-rotate(180deg) saturate(0) contrast(2)">` : ''}
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:8px">
+        <span>姓名：${emp.name}</span>
+        <span>日期：${signedAt.slice(0,10)}</span>
+      </div>
+    </div>
+
+    <div style="margin-top:34px;padding-top:14px;border-top:1px solid #ddd;text-align:center;font-size:10px;color:#888;line-height:1.8">
+      本文件以電子方式簽署，具法律約束力<br>
+      巨揚工程有限公司安全管理系統　產生時間：${new Date().toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong'})}
+    </div>`;
+
+  document.body.appendChild(sheet);
+
+  try {
+    const canvasImg = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', logging: false });
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const w = 210;
+    const h = (canvasImg.height * w) / canvasImg.width;
+    doc.addImage(canvasImg.toDataURL('image/png'), 'PNG', 0, 0, w, Math.min(h, 297));
+    doc.save(`${emp.name}_安全守則簽署_${signedAt.slice(0,10)}.pdf`);
+  } catch (e) {
+    console.error('[PDF ERROR]', e.message);
+    toast('❌ PDF 產生失敗');
+  } finally {
+    sheet.remove();
+  }
 }
 
 function toast(msg) {
