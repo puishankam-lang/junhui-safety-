@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>俊輝電梯 — 安全守則簽署</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;background:#0d0f12;color:#e8eaf0;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:20px 16px 40px}
@@ -192,178 +191,215 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;backg
 <div class="toast" id="toast"></div>
 
 <script>
-
-let emp=null,hasSig=false,hasRead=false,sigURL=null,signedAt=null;
-let canvas,ctx,drawing=false,lx,ly;
-
 const SB_URL='https://fyxvejnvzflxppqrhlzt.supabase.co';
 const SB_KEY='sb_publishable_k9GEEEmqiYnuBPFqsQuvIQ_YGjweOSh';
-const COLORS=['#FF6B1A', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#F43F5E', '#06B6D4', '#84CC16', '#E879F9', '#F0C000', '#22C55E', '#60A5FA', '#A78BFA', '#FB923C', '#FF6B1A', '#22C55E'];
-let EMPLOYEES=[];
+const COLORS=['#FF6B1A','#22C55E','#60A5FA','#A78BFA','#FB923C','#F43F5E','#06B6D4','#84CC16','#E879F9','#F0C000'];
 
-// 初始化 Supabase client
-const { createClient } = window.supabase;
-const supabase = createClient(SB_URL, SB_KEY);
+let emp=null, hasSig=false, hasRead=false, sigURL=null, signedAt=null;
+let canvas, ctx, drawing=false, lx, ly;
 
-function init(){
-  console.log('[INIT] Starting initialization...');
-  const p=new URLSearchParams(location.hash.slice(1));
-  const empName=decodeURIComponent(p.get('emp')||'');
-  console.log(`[INIT] URL param emp="${empName}", total employees=${EMPLOYEES.length}`);
-  
-  if(!empName){
-    console.log('[ERROR] 冇員工名字喺 URL');
-    document.getElementById('errorScreen').style.display='block';
-    document.getElementById('errorMsg').textContent='請向主管索取簽署連結';
-    return;
-  }
-  
-  emp=EMPLOYEES.find(e=>e.name===empName);
-  
-  if(!emp){
-    console.log(`[ERROR] 搵唔到員工: "${empName}". Available: ${EMPLOYEES.map(e=>e.name).join(', ')}`);
-    document.getElementById('errorScreen').style.display='block';
-    document.getElementById('errorMsg').textContent=`搵唔到員工: ${empName}`;
-  } else {
-    console.log(`[SUCCESS] 搵到員工: ${emp.name}`);
-    document.getElementById('mainContent').style.display='block';
-    document.getElementById('empName').textContent=emp.name;
-    const av=document.getElementById('empAvatar');
-    av.textContent=emp.name[0];
-    av.style.background=emp.color+'33';
-    av.style.color=emp.color;
-    av.style.border='2px solid '+emp.color+'66';
-    initCanvas();
-  }
-}
+// Hardcoded employees from Supabase
+const allEmployees = [
+  {id:26, name:'姚奇敏', phone:'', color:COLORS[0]},
+  {id:28, name:'賴偉志', phone:'', color:COLORS[1]},
+  {id:29, name:'韓小錦', phone:'', color:COLORS[2]},
+  {id:30, name:'彭金花', phone:'', color:COLORS[3]},
+  {id:31, name:'李文彪', phone:'', color:COLORS[4]},
+  {id:32, name:'莫家文', phone:'', color:COLORS[5]},
+  {id:33, name:'陳文軒', phone:'', color:COLORS[6]},
+  {id:43, name:'Simon 曾遠宗', phone:'', color:COLORS[7]},
+  {id:44, name:'Kim', phone:'', color:COLORS[8]},
+  {id:45, name:'耿華成', phone:'', color:COLORS[9]},
+  {id:46, name:'譚敏銳', phone:'', color:COLORS[0]},
+  {id:47, name:'吳紹鵬', phone:'', color:COLORS[1]},
+  {id:48, name:'蔡貴明', phone:'', color:COLORS[2]},
+  {id:51, name:'李國森', phone:'', color:COLORS[3]},
+  {id:52, name:'KK mario', phone:'', color:COLORS[4]}
+];
 
-function onScroll(){
-  const b=document.getElementById('safetyBox');
-  const r=b.scrollTop/(b.scrollHeight-b.clientHeight);
-  document.getElementById('pFill').style.width=Math.min(100,r*100)+'%';
-  if(r>0.95&&!hasRead){hasRead=true;document.getElementById('readBadge').style.display='flex';}
-  updateState();
-}
+let employees = allEmployees;
 
-function updateState(){
-  document.getElementById('submitBtn').disabled=!(document.getElementById('agreeCheck').checked&&hasSig);
-}
-
-function initCanvas(){
-  canvas=document.getElementById('sigCanvas');
-  ctx=canvas.getContext('2d');
-  canvas.width=canvas.offsetWidth*devicePixelRatio||440*devicePixelRatio;
-  canvas.height=160*devicePixelRatio;
-  ctx.scale(devicePixelRatio,devicePixelRatio);
-  ctx.strokeStyle='#f0c000';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
-  const pos=e=>{const r=canvas.getBoundingClientRect();const s=e.touches?e.touches[0]:e;return[s.clientX-r.left,s.clientY-r.top];};
-  canvas.addEventListener('mousedown',e=>{drawing=true;[lx,ly]=pos(e);});
-  canvas.addEventListener('mousemove',e=>{if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];});
-  canvas.addEventListener('mouseup',()=>{drawing=false;chkSig();});
-  canvas.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;[lx,ly]=pos(e);},{passive:false});
-  canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[x,y]=pos(e);ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();[lx,ly]=[x,y];},{passive:false});
-  canvas.addEventListener('touchend',()=>{drawing=false;chkSig();});
-}
-
-function chkSig(){const d=ctx.getImageData(0,0,canvas.width,canvas.height).data;hasSig=d.some((v,i)=>i%4===3&&v>0);if(hasSig)document.getElementById('sigWrap').classList.add('has-sig');updateState();}
-
-function clearSig(){ctx.clearRect(0,0,canvas.width,canvas.height);hasSig=false;document.getElementById('sigWrap').classList.remove('has-sig');updateState();}
-
-async function doSubmit(){
-  const btn=document.getElementById('submitBtn');
-  btn.disabled=true;btn.textContent='儲存中...';
-  sigURL=canvas.toDataURL('image/png');
-  signedAt=new Date().toISOString();
-  try{
-    const { error } = await supabase
-      .from('safety_signs')
-      .insert([{
-        employee_name: emp.name,
-        signed_at: signedAt,
-        signature_data: sigURL
-      }]);
-    
-    if(error) throw error;
-    
-    document.getElementById('mainContent').style.display='none';
-    document.getElementById('successScreen').style.display='block';
-    const exp=new Date(signedAt);exp.setMonth(exp.getMonth()+6);
-    document.getElementById('sumBox').innerHTML=`
-      <div class="sum-row"><span style="color:#555d6e">姓名</span><span style="font-weight:600">${emp.name}</span></div>
-      <div class="sum-row"><span style="color:#555d6e">簽署日期</span><span style="font-weight:600">${signedAt.slice(0,10)}</span></div>
-      <div class="sum-row"><span style="color:#555d6e">簽署時間</span><span style="font-weight:600">${signedAt.slice(11,16)} HKT</span></div>
-      <div class="sum-row"><span style="color:#555d6e">有效期至</span><span style="font-weight:600;color:#f0c000">${exp.toISOString().slice(0,10)}</span></div>`;
-  }catch(e){
-    console.error('[SUBMIT ERROR]',e.message);
-    btn.disabled=false;btn.textContent='✅ 確認簽署';
-    toast('❌ 儲存失敗，請重試');
-  }
-}
-
-async function downloadPDF(){
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF({orientation:'p',unit:'mm',format:'a4'});
-  doc.setFillColor(13,15,18);doc.rect(0,0,210,297,'F');
-  doc.setTextColor(240,192,0);doc.setFontSize(15);doc.setFont('helvetica','bold');
-  doc.text('Keung Yeung Engineering Co. Ltd.',105,18,{align:'center'});
-  doc.setFontSize(11);doc.text('Safety Guidelines — Employee Acknowledgement',105,26,{align:'center'});
-  doc.setDrawColor(240,192,0);doc.setLineWidth(0.4);doc.line(20,30,190,30);
-  doc.setTextColor(232,234,240);doc.setFontSize(10);doc.setFont('helvetica','normal');
-  const exp=new Date(signedAt);exp.setMonth(exp.getMonth()+6);
-  let y=40;
-  [['Employee',emp.name],['Signed Date',signedAt.slice(0,10)],['Signed Time',signedAt.slice(11,16)+' HKT'],['Valid Until',exp.toISOString().slice(0,10)],['Document','Safety Guidelines v2026-09-02']].forEach(([l,v])=>{
-    doc.setTextColor(150,160,180);doc.text(l+':',20,y);
-    doc.setTextColor(232,234,240);doc.text(v,75,y);y+=8;
-  });
-  doc.setDrawColor(42,48,69);doc.line(20,y,190,y);y+=8;
-  doc.setTextColor(240,192,0);doc.setFontSize(11);doc.setFont('helvetica','bold');
-  doc.text('Employee Signature:',20,y);y+=6;
-  doc.setDrawColor(42,48,69);doc.setLineWidth(0.3);doc.rect(20,y,170,38);
-  if(sigURL)try{doc.addImage(sigURL,'PNG',22,y+2,166,34);}catch(e){}
-  y+=44;
-  doc.setTextColor(80,90,110);doc.setFontSize(8);doc.setFont('helvetica','normal');
-  doc.text('Electronically signed — legally binding document',105,y,{align:'center'});
-  doc.text('Keung Yeung Safety Portal | Generated: '+new Date().toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong'}),105,y+5,{align:'center'});
-  doc.save(`${emp.name}_Safety_${signedAt.slice(0,10)}.pdf`);
-}
-
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-
-async function loadEmployees(){
-  try{
-    console.log('[LOAD] Fetching employees from Supabase using SDK...');
-    
-    const { data, error } = await supabase
-      .from('employees')
-      .select('id,name,phone')
-      .order('id', { ascending: true });
-    
-    if(error) throw error;
-    
-    console.log(`[LOAD] Received ${data?.length || 0} employee records`);
-    
-    if(Array.isArray(data) && data.length > 0){
-      EMPLOYEES = data.map((e, i) => ({
-        id: e.id,
-        name: e.name,
-        phone: e.phone || '',
-        color: COLORS[i % COLORS.length]
-      }));
-      console.log(`[LOAD] Loaded employees: ${EMPLOYEES.map(e => e.name).join(', ')}`);
-    } else {
-      console.log('[LOAD] Employees table is empty');
-      EMPLOYEES = [];
+async function loadEmployees() {
+  try {
+    const url = `${SB_URL}/rest/v1/employees?select=id,name,phone&order=id.asc`;
+    const resp = await fetch(url, {
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (Array.isArray(data) && data.length > 0) {
+      employees = data.map(function(e, i) {
+        return { id: e.id, name: e.name, phone: e.phone || '', color: COLORS[i % COLORS.length] };
+      });
+      console.log('[LOAD] Supabase 成功 —', employees.length, '個員工（會自動包含新同事）');
     }
-  }catch(e){
-    console.error('[LOAD ERROR]', e.message);
-    EMPLOYEES = [];
+  } catch (e) {
+    console.warn('[LOAD] Supabase 讀唔到 (' + e.message + ')，改用內建清單', allEmployees.length, '人');
   }
   init();
 }
 
-// 啟動程式
-loadEmployees();
+function init() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const empName = decodeURIComponent(p.get('emp') || '');
+  console.log('[INIT]', empName, 'employees:', employees.length);
+  
+  if (!empName) {
+    document.getElementById('errorScreen').style.display='block';
+    return;
+  }
+  
+  emp = employees.find(e => e.name === empName);
+  if (!emp) {
+    document.getElementById('errorScreen').style.display='block';
+    document.getElementById('errorMsg').textContent=`搵唔到員工: ${empName}`;
+    return;
+  }
+  
+  document.getElementById('mainContent').style.display='block';
+  document.getElementById('empName').textContent=emp.name;
+  const av = document.getElementById('empAvatar');
+  av.textContent = emp.name[0];
+  av.style.background = emp.color + '33';
+  av.style.color = emp.color;
+  av.style.border = '2px solid ' + emp.color + '66';
+  initCanvas();
+}
 
+function onScroll() {
+  const b = document.getElementById('safetyBox');
+  const r = b.scrollTop / (b.scrollHeight - b.clientHeight);
+  document.getElementById('pFill').style.width = Math.min(100, r * 100) + '%';
+  if (r > 0.95 && !hasRead) {
+    hasRead = true;
+    document.getElementById('readBadge').style.display='flex';
+  }
+  updateState();
+}
+
+function updateState() {
+  document.getElementById('submitBtn').disabled = !(document.getElementById('agreeCheck').checked && hasSig);
+}
+
+function initCanvas() {
+  canvas = document.getElementById('sigCanvas');
+  ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * (devicePixelRatio || 1);
+  canvas.height = 160 * (devicePixelRatio || 1);
+  ctx.scale(devicePixelRatio || 1, devicePixelRatio || 1);
+  ctx.strokeStyle='#f0c000';ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
+  
+  const pos = e => {
+    const r = canvas.getBoundingClientRect();
+    const s = e.touches ? e.touches[0] : e;
+    return [s.clientX - r.left, s.clientY - r.top];
+  };
+  
+  canvas.addEventListener('mousedown', e => {drawing=true; [lx, ly]=pos(e);});
+  canvas.addEventListener('mousemove', e => {if(!drawing)return; const[x,y]=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke(); [lx,ly]=[x,y];});
+  canvas.addEventListener('mouseup', () => {drawing=false; chkSig();});
+  canvas.addEventListener('touchstart', e => {e.preventDefault(); drawing=true; [lx,ly]=pos(e);}, {passive:false});
+  canvas.addEventListener('touchmove', e => {e.preventDefault(); if(!drawing)return; const[x,y]=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(x,y); ctx.stroke(); [lx,ly]=[x,y];}, {passive:false});
+  canvas.addEventListener('touchend', () => {drawing=false; chkSig();});
+}
+
+function chkSig() {
+  const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+  hasSig = d.some((v, i) => i % 4 === 3 && v > 0);
+  if (hasSig) document.getElementById('sigWrap').classList.add('has-sig');
+  updateState();
+}
+
+function clearSig() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  hasSig = false;
+  document.getElementById('sigWrap').classList.remove('has-sig');
+  updateState();
+}
+
+async function doSubmit() {
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '儲存中...';
+  sigURL = canvas.toDataURL('image/png');
+  signedAt = new Date().toISOString();
+  
+  try {
+    const resp = await fetch(`${SB_URL}/rest/v1/safety_signs`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        employee_name: emp.name,
+        signed_at: signedAt,
+        signature_data: sigURL
+      })
+    });
+    
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    
+    document.getElementById('mainContent').style.display='none';
+    document.getElementById('successScreen').style.display='block';
+    const exp = new Date(signedAt);
+    exp.setMonth(exp.getMonth() + 6);
+    document.getElementById('sumBox').innerHTML = `
+      <div class="sum-row"><span style="color:#555d6e">姓名</span><span style="font-weight:600">${emp.name}</span></div>
+      <div class="sum-row"><span style="color:#555d6e">簽署日期</span><span style="font-weight:600">${signedAt.slice(0,10)}</span></div>
+      <div class="sum-row"><span style="color:#555d6e">簽署時間</span><span style="font-weight:600">${signedAt.slice(11,16)} HKT</span></div>
+      <div class="sum-row"><span style="color:#555d6e">有效期至</span><span style="font-weight:600;color:#f0c000">${exp.toISOString().slice(0,10)}</span></div>`;
+  } catch (e) {
+    console.error('[ERROR]', e.message);
+    btn.disabled = false;
+    btn.textContent = '✅ 確認簽署';
+    toast('❌ 儲存失敗');
+  }
+}
+
+async function downloadPDF() {
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF();
+  doc.setFillColor(13, 15, 18);
+  doc.rect(0, 0, 210, 297, 'F');
+  doc.setTextColor(240, 192, 0);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Keung Yeung Engineering Co. Ltd.', 105, 18, {align:'center'});
+  doc.setFontSize(11);
+  doc.text('Safety Acknowledgement', 105, 26, {align:'center'});
+  doc.setDrawColor(240, 192, 0);
+  doc.line(20, 30, 190, 30);
+  
+  doc.setTextColor(232, 234, 240);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const exp = new Date(signedAt);
+  exp.setMonth(exp.getMonth() + 6);
+  
+  let y = 40;
+  [['Employee', emp.name], ['Date', signedAt.slice(0, 10)], ['Time', signedAt.slice(11, 16) + ' HKT'], ['Valid Until', exp.toISOString().slice(0, 10)]].forEach(([l, v]) => {
+    doc.setTextColor(150, 160, 180);
+    doc.text(l + ':', 20, y);
+    doc.setTextColor(232, 234, 240);
+    doc.text(v, 75, y);
+    y += 8;
+  });
+  
+  if (sigURL) doc.addImage(sigURL, 'PNG', 20, y + 10, 170, 40);
+  
+  doc.save(`${emp.name}_Safety_${signedAt.slice(0, 10)}.pdf`);
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+loadEmployees();
 </script>
 </body>
 </html>
