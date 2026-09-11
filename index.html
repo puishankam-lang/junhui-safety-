@@ -184,8 +184,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang HK',sans-serif;backg
     <div class="tick">✅</div>
     <h2 style="font-size:20px;font-weight:800;color:#22c55e;margin-bottom:8px">簽署完成！</h2>
     <div class="sum" id="sumBox"></div>
-    <p style="color:#9aa0b4;font-size:13px">此簽署紀錄已儲存，有效期六個月</p>
-    <button class="btn-pdf" onclick="downloadPDF()">📄 下載 PDF 簽署紀錄</button>
+    <p style="color:#9aa0b4;font-size:13px">此簽署紀錄已儲存至公司系統，有效期六個月</p>
+    <p style="color:#555d6e;font-size:12px;margin-top:8px">如需簽署文件副本，請向主管索取</p>
+  </div>
+</div>
+
+<div id="adminScreen" style="display:none;width:100%;max-width:560px">
+  <div class="card">
+    <div style="font-size:16px;font-weight:700;color:#f0c000;margin-bottom:4px">📄 簽署紀錄補印</div>
+    <div style="font-size:12px;color:#555d6e;margin-bottom:16px">公司內部使用｜點選紀錄下載 PDF</div>
+    <div id="adminList" style="font-size:13px;color:#9aa0b4">載入中...</div>
   </div>
 </div>
 
@@ -241,6 +249,7 @@ async function loadEmployees() {
 }
 
 function init() {
+  if (location.hash.slice(1).split('&')[0] === 'print') { return loadAdmin(); }
   const p = new URLSearchParams(location.hash.slice(1));
   const raw = decodeURIComponent(p.get('emp') || '');
   console.log('[INIT] emp =', raw, '| employees:', employees.length);
@@ -371,85 +380,129 @@ async function doSubmit() {
   }
 }
 
-async function downloadPDF() {
-  const exp = new Date(signedAt);
-  exp.setMonth(exp.getMonth() + 6);
+// ── 公司補印頁 ──────────────────────────────
+async function loadAdmin() {
+  document.getElementById('adminScreen').style.display = 'block';
+  const box = document.getElementById('adminList');
+  try {
+    const url = `${SB_URL}/rest/v1/safety_acknowledgments?ack_type=eq.safety_guidelines&order=signed_at.desc`;
+    const resp = await fetch(url, { headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` } });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const rows = await resp.json();
+    if (!rows.length) { box.textContent = '暫無簽署紀錄'; return; }
+
+    box.innerHTML = '';
+    rows.forEach(function (r) {
+      const person = employees.find(x => x.id === r.employee_id);
+      const nm = person ? person.name : ('員工 #' + r.employee_id);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #1e2330';
+      row.innerHTML =
+        '<div><div style="font-weight:700;color:#e8eaf0;font-size:14px">' + nm + '</div>' +
+        '<div style="font-size:11px;color:#555d6e;margin-top:3px">簽署 ' + String(r.signed_at).slice(0, 10) +
+        '　有效至 ' + (r.valid_until || '—') + '</div></div>';
+      const b = document.createElement('button');
+      b.className = 'btn-pdf';
+      b.style.cssText = 'width:auto;padding:8px 14px;margin:0;font-size:12px;flex-shrink:0';
+      b.textContent = '下載 PDF';
+      b.onclick = function () { buildPDF(nm, r, b); };
+      row.appendChild(b);
+      box.appendChild(row);
+    });
+  } catch (err) {
+    box.textContent = '讀取失敗：' + err.message;
+  }
+}
+
+// ── PDF 產生（含守則全文、自動分頁）──────────
+async function buildPDF(name, rec, btn) {
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '產生中...'; }
+
+  const signedISO = rec.signed_at;
+  const validUntil = rec.valid_until ||
+    (function () { const d = new Date(signedISO); d.setMonth(d.getMonth() + 6); return d.toISOString().slice(0, 10); })();
+  const guidelines = document.getElementById('safetyBox').textContent;
+  const sig = rec.signature_data || '';
 
   const sheet = document.createElement('div');
-  sheet.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;padding:56px 64px;background:#ffffff;color:#111;font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Microsoft JhengHei",sans-serif;box-sizing:border-box;';
-  sheet.innerHTML = `
-    <div style="text-align:center;border-bottom:3px solid #b8860b;padding-bottom:18px;margin-bottom:28px">
-      <div style="font-size:26px;font-weight:800;letter-spacing:2px;color:#111">巨揚工程有限公司</div>
-      <div style="font-size:13px;color:#666;margin-top:4px">Keung Yeung Engineering Co. Ltd.</div>
-      <div style="font-size:17px;font-weight:700;margin-top:14px;color:#111">安全守則培訓及承諾書</div>
-      <div style="font-size:12px;color:#666;margin-top:3px">Safety Guidelines Training &amp; Acknowledgement</div>
-    </div>
+  sheet.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;padding:56px 64px;background:#fff;color:#111;font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Microsoft JhengHei",sans-serif;box-sizing:border-box;';
+  sheet.innerHTML =
+    '<div style="text-align:center;border-bottom:3px solid #b8860b;padding-bottom:18px;margin-bottom:26px">' +
+      '<div style="font-size:26px;font-weight:800;letter-spacing:2px">巨揚工程有限公司</div>' +
+      '<div style="font-size:13px;color:#666;margin-top:4px">Keung Yeung Engineering Co. Ltd.</div>' +
+      '<div style="font-size:17px;font-weight:700;margin-top:14px">安全守則培訓及承諾書</div>' +
+      '<div style="font-size:12px;color:#666;margin-top:3px">Safety Guidelines Training &amp; Acknowledgement</div>' +
+    '</div>' +
 
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:28px">
-      <tr>
-        <td style="padding:9px 0;color:#666;width:120px">員工姓名</td>
-        <td style="padding:9px 0;font-weight:700;font-size:16px">${emp.name}</td>
-      </tr>
-      <tr>
-        <td style="padding:9px 0;color:#666">簽署日期</td>
-        <td style="padding:9px 0;font-weight:600">${signedAt.slice(0,10)}　${signedAt.slice(11,16)} HKT</td>
-      </tr>
-      <tr>
-        <td style="padding:9px 0;color:#666">有效期至</td>
-        <td style="padding:9px 0;font-weight:700;color:#b8860b">${exp.toISOString().slice(0,10)}</td>
-      </tr>
-      <tr>
-        <td style="padding:9px 0;color:#666">文件版本</td>
-        <td style="padding:9px 0">安全守則 2026-09-02</td>
-      </tr>
-    </table>
+    '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:26px">' +
+      '<tr><td style="padding:8px 0;color:#666;width:120px">員工姓名</td><td style="padding:8px 0;font-weight:700;font-size:16px">' + name + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#666">簽署日期</td><td style="padding:8px 0;font-weight:600">' + signedISO.slice(0, 10) + '　' + signedISO.slice(11, 16) + ' HKT</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#666">有效期至</td><td style="padding:8px 0;font-weight:700;color:#b8860b">' + validUntil + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#666">文件版本</td><td style="padding:8px 0">' + (rec.document_version || '2026-09-02') + '</td></tr>' +
+    '</table>' +
 
-    <div style="font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:7px;border-bottom:1px solid #ddd">員工承諾條款</div>
-    <div style="font-size:13px;line-height:2.0;color:#222;margin-bottom:30px">
-      本人 <span style="font-weight:700;border-bottom:1px solid #111;padding:0 10px">${emp.name}</span> 確認：<br>
-      （一）已細閱並明白《升降機及自動梯條例》（Cap.618）及相關規例之要求；<br>
-      （二）同意遵守公司安全管理制度（SOP、SMP、PTW）及安全守則所有條款；<br>
-      （三）明白違反安全規例可導致工傷、法律責任及紀律處分；<br>
-      （四）同意發現不安全情況時，立即停工並向主管報告；<br>
-      （五）確認本人具備執行所分配工作之相關資格及牌照；<br>
-      （六）明白本承諾書簽署屬法律文件，有效期六個月，屆滿須重新簽署。
-    </div>
+    '<div style="font-size:15px;font-weight:700;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #ddd">員工承諾條款</div>' +
+    '<div style="font-size:13px;line-height:2.0;margin-bottom:26px">' +
+      '本人 <span style="font-weight:700;border-bottom:1px solid #111;padding:0 10px">' + name + '</span> 確認：<br>' +
+      '（一）已細閱並明白《升降機及自動梯條例》（Cap.618）及相關規例之要求；<br>' +
+      '（二）同意遵守公司安全管理制度（SOP、SMP、PTW）及安全守則所有條款；<br>' +
+      '（三）明白違反安全規例可導致工傷、法律責任及紀律處分；<br>' +
+      '（四）同意發現不安全情況時，立即停工並向主管報告；<br>' +
+      '（五）確認本人具備執行所分配工作之相關資格及牌照；<br>' +
+      '（六）明白本承諾書簽署屬法律文件，有效期六個月，屆滿須重新簽署。' +
+    '</div>' +
 
-    <div style="font-size:13px;color:#222;margin-bottom:10px;font-weight:600">
-      本人已細閱並完全理解上述安全守則全文，並以下方簽名確認同意遵守所有條款。
-    </div>
+    '<div style="font-size:13px;font-weight:600;margin-bottom:14px">本人已細閱並完全理解隨附之安全守則全文，並以下方簽名確認同意遵守所有條款。</div>' +
 
-    <div style="margin-top:22px">
-      <div style="font-size:13px;color:#666;margin-bottom:6px">員工簽名 Employee Signature</div>
-      <div style="border:1px solid #bbb;height:120px;display:flex;align-items:center;justify-content:center;background:#fafafa">
-        ${sigURL ? `<img src="${sigURL}" style="max-height:110px;max-width:96%;filter:invert(1) hue-rotate(180deg) saturate(0) contrast(2)">` : ''}
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:8px">
-        <span>姓名：${emp.name}</span>
-        <span>日期：${signedAt.slice(0,10)}</span>
-      </div>
-    </div>
+    '<div style="margin-bottom:34px">' +
+      '<div style="font-size:13px;color:#666;margin-bottom:6px">員工簽名 Employee Signature</div>' +
+      '<div style="border:1px solid #bbb;height:120px;display:flex;align-items:center;justify-content:center;background:#fafafa">' +
+        (sig ? '<img src="' + sig + '" style="max-height:110px;max-width:96%;filter:invert(1) hue-rotate(180deg) saturate(0) contrast(2)">' : '<span style="color:#bbb;font-size:12px">簽名未存檔</span>') +
+      '</div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-top:8px">' +
+        '<span>姓名：' + name + '</span><span>日期：' + signedISO.slice(0, 10) + '</span>' +
+      '</div>' +
+    '</div>' +
 
-    <div style="margin-top:34px;padding-top:14px;border-top:1px solid #ddd;text-align:center;font-size:10px;color:#888;line-height:1.8">
-      本文件以電子方式簽署，具法律約束力<br>
-      巨揚工程有限公司安全管理系統　產生時間：${new Date().toLocaleString('zh-HK',{timeZone:'Asia/Hong_Kong'})}
-    </div>`;
+    '<div style="border-top:2px solid #b8860b;padding-top:18px">' +
+      '<div style="font-size:15px;font-weight:700;margin-bottom:12px">附件：安全守則全文</div>' +
+      '<div style="font-size:11px;line-height:1.9;white-space:pre-wrap;color:#222">' +
+        guidelines.replace(/&/g, '&amp;').replace(/</g, '&lt;') +
+      '</div>' +
+    '</div>' +
+
+    '<div style="margin-top:30px;padding-top:14px;border-top:1px solid #ddd;text-align:center;font-size:10px;color:#888;line-height:1.8">' +
+      '本文件以電子方式簽署，具法律約束力<br>' +
+      '巨揚工程有限公司安全管理系統　產生時間：' + new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' }) +
+    '</div>';
 
   document.body.appendChild(sheet);
 
   try {
-    const canvasImg = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', logging: false });
+    const cv = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', logging: false });
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    const w = 210;
-    const h = (canvasImg.height * w) / canvasImg.width;
-    doc.addImage(canvasImg.toDataURL('image/png'), 'PNG', 0, 0, w, Math.min(h, 297));
-    doc.save(`${emp.name}_安全守則簽署_${signedAt.slice(0,10)}.pdf`);
-  } catch (e) {
-    console.error('[PDF ERROR]', e.message);
+    const pageH = 297;
+    const imgW = 210;
+    const imgH = (cv.height * imgW) / cv.width;
+    const img = cv.toDataURL('image/png');
+
+    let offset = 0, page = 0;
+    while (offset < imgH - 1) {
+      if (page > 0) doc.addPage();
+      doc.addImage(img, 'PNG', 0, -offset, imgW, imgH);
+      offset += pageH;
+      page++;
+      if (page > 20) break;
+    }
+    doc.save(name + '_安全守則簽署_' + signedISO.slice(0, 10) + '.pdf');
+  } catch (err) {
+    console.error('[PDF ERROR]', err.message);
     toast('❌ PDF 產生失敗');
   } finally {
     sheet.remove();
+    if (btn) { btn.disabled = false; btn.textContent = original; }
   }
 }
 
