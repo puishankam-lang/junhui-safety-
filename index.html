@@ -470,11 +470,44 @@ async function loadAdmin() {
       b.style.cssText = 'width:auto;padding:8px 14px;margin:0;font-size:12px;flex-shrink:0';
       b.textContent = '下載 PDF';
       b.onclick = function () { buildPDF(nm, r, b); };
-      row.appendChild(b);
+
+      const d = document.createElement('button');
+      d.className = 'btn-pdf';
+      d.style.cssText = 'width:auto;padding:8px 12px;margin:0 0 0 6px;font-size:12px;flex-shrink:0;border-color:#e05c5c44;color:#e05c5c';
+      d.textContent = '刪除';
+      d.onclick = function () { deleteRecord(nm, r, row, d); };
+
+      const acts = document.createElement('div');
+      acts.style.cssText = 'display:flex;flex-shrink:0';
+      acts.appendChild(b);
+      acts.appendChild(d);
+      row.appendChild(acts);
       box.appendChild(row);
     });
   } catch (err) {
     box.textContent = '讀取失敗：' + err.message;
+  }
+}
+
+// ── 刪除簽署紀錄（公司內部）──────────────────
+async function deleteRecord(name, rec, rowEl, btn) {
+  const when = String(rec.signed_at).slice(0, 10);
+  if (!window.confirm('確定刪除 ' + name + ' 於 ' + when + ' 嘅簽署紀錄？\n\n此紀錄屬法律文件，刪除後無法復原。\n建議先下載 PDF 存檔。')) return;
+  btn.disabled = true;
+  btn.textContent = '刪除中...';
+  try {
+    const resp = await fetch(`${SB_URL}/rest/v1/safety_acknowledgments?id=eq.${rec.id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}` }
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    rowEl.remove();
+    toast('🗑 已刪除 ' + name + ' ' + when);
+  } catch (err) {
+    console.error('[DELETE ERROR]', err.message);
+    btn.disabled = false;
+    btn.textContent = '刪除';
+    toast('❌ 刪除失敗');
   }
 }
 
