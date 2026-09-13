@@ -533,6 +533,7 @@ async function buildPDF(name, rec, btn) {
 
     '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:26px">' +
       '<tr><td style="padding:8px 0;color:#666;width:120px">員工姓名</td><td style="padding:8px 0;font-weight:700;font-size:16px">' + name + '</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#666">身份證號碼</td><td style="padding:8px 0;color:#999">＿＿＿＿＿＿＿＿</td></tr>' +
       '<tr><td style="padding:8px 0;color:#666">簽署日期</td><td style="padding:8px 0;font-weight:600">' + signedISO.slice(0, 10) + '　' + signedISO.slice(11, 16) + ' HKT</td></tr>' +
       '<tr><td style="padding:8px 0;color:#666">有效期至</td><td style="padding:8px 0;font-weight:700;color:#b8860b">' + validUntil + '</td></tr>' +
       '<tr><td style="padding:8px 0;color:#666">文件版本</td><td style="padding:8px 0">' + (rec.document_version || '2026-09-02') + '</td></tr>' +
@@ -569,29 +570,76 @@ async function buildPDF(name, rec, btn) {
     '</div>' +
 
     '<div style="margin-top:30px;padding-top:14px;border-top:1px solid #ddd;text-align:center;font-size:10px;color:#888;line-height:1.8">' +
-      '本文件以電子方式簽署，具法律約束力<br>' +
+      '本文件以電子方式簽署，具法律約束力　｜　本紀錄保存期限：5 年<br>' +
       '巨揚工程有限公司安全管理系統　產生時間：' + new Date().toLocaleString('zh-HK', { timeZone: 'Asia/Hong_Kong' }) +
     '</div>';
 
   document.body.appendChild(sheet);
 
   try {
-    const cv = await html2canvas(sheet, { scale: 2, backgroundColor: '#ffffff', logging: false });
+    const cv = await html2canvas(sheet, { scale: 1.5, backgroundColor: '#ffffff', logging: false });
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
-    const pageH = 297;
-    const imgW = 210;
-    const imgH = (cv.height * imgW) / cv.width;
-    const img = cv.toDataURL('image/png');
 
-    let offset = 0, page = 0;
-    while (offset < imgH - 1) {
-      if (page > 0) doc.addPage();
-      doc.addImage(img, 'PNG', 0, -offset, imgW, imgH);
-      offset += pageH;
-      page++;
-      if (page > 20) break;
+    const PW = 210, PH = 297, TOP = 12, BOT = 16;
+    const pxPerMm = cv.width / PW;
+    const bodyPx = Math.floor((PH - TOP - BOT) * pxPerMm);
+    const ctx = cv.getContext('2d');
+
+    // 搵一行全白嘅像素，避免切斷文字
+    const rowIsBlank = (y) => {
+      const d = ctx.getImageData(0, y, cv.width, 1).data;
+      for (let x = 0; x < cv.width; x += 4) {
+        const i = x * 4;
+        if (d[i] < 245 || d[i + 1] < 245 || d[i + 2] < 245) return false;
+      }
+      return true;
+    };
+
+    // 先計好每頁切喺邊，得出總頁數
+    const cuts = [];
+    let pos = 0;
+    while (pos < cv.height) {
+      let end = Math.min(pos + bodyPx, cv.height);
+      if (end < cv.height) {
+        const limit = Math.max(pos + Math.floor(bodyPx * 0.5), end - 160);
+        let y = end;
+        while (y > limit && !rowIsBlank(y)) y--;
+        if (y > limit) end = y;
+      }
+      cuts.push([pos, end]);
+      pos = end;
+      if (cuts.length > 30) break;
     }
+    const total = cuts.length;
+
+    // 中文頁碼：用 canvas 畫出嚟再貼入 PDF
+    const pageLabel = (n) => {
+      const c = document.createElement('canvas');
+      c.width = 600; c.height = 60;
+      const g = c.getContext('2d');
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = '#888888';
+      g.font = '26px -apple-system, "PingFang HK", "Microsoft JhengHei", sans-serif';
+      g.textAlign = 'center';
+      g.fillText('第 ' + n + ' 頁，共 ' + total + ' 頁', c.width / 2, 38);
+      return c.toDataURL('image/jpeg', 0.9);
+    };
+
+    const tmp = document.createElement('canvas');
+    const tctx = tmp.getContext('2d');
+
+    cuts.forEach(([from, to], i) => {
+      if (i > 0) doc.addPage();
+      tmp.width = cv.width;
+      tmp.height = to - from;
+      tctx.fillStyle = '#ffffff';
+      tctx.fillRect(0, 0, tmp.width, tmp.height);
+      tctx.drawImage(cv, 0, from, cv.width, to - from, 0, 0, cv.width, to - from);
+      doc.addImage(tmp.toDataURL('image/jpeg', 0.92), 'JPEG', 0, TOP, PW, (to - from) / pxPerMm);
+      doc.addImage(pageLabel(i + 1), 'JPEG', 75, PH - 12, 60, 6);
+    });
+
     doc.save(name + '_安全守則簽署_' + signedISO.slice(0, 10) + '.pdf');
   } catch (err) {
     console.error('[PDF ERROR]', err.message);
