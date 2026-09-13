@@ -230,6 +230,12 @@ PPE 最低要求：安全帽、防滑鋼頭安全鞋、高可視背心、防割�
       <span>本人已細閱並完全理解以上安全守則全文，同意遵守所有條款，並確認本人具備執行所分配工作之相關資格。</span>
     </label>
 
+    <div class="section-title">🪪 身份證號碼</div>
+    <input type="text" id="hkidInput" oninput="updateState()" autocomplete="off"
+      placeholder="例：A123456(7)"
+      style="width:100%;background:#0d0f12;border:1px solid #2a3045;border-radius:10px;color:#e8eaf0;font-size:16px;padding:12px 14px;outline:none;margin-bottom:6px;box-sizing:border-box">
+    <div id="hkidHint" style="font-size:11px;color:#3a4255;margin-bottom:16px">系統只會儲存遮蔽版本（例：A123***(7)），完整號碼不會儲存</div>
+
     <div class="section-title">✍️ 電子簽名</div>
     <div class="sig-wrap" id="sigWrap">
       <canvas id="sigCanvas" height="160"></canvas>
@@ -356,8 +362,29 @@ function onScroll() {
   updateState();
 }
 
+function maskHKID(raw) {
+  const s = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const m = s.match(/^([A-Z]{1,2})(\d{6})([0-9A])$/);
+  if (!m) return null;
+  return m[1] + m[2].slice(0, 3) + '***(' + m[3] + ')';
+}
+
 function updateState() {
-  document.getElementById('submitBtn').disabled = !(document.getElementById('agreeCheck').checked && hasSig);
+  const raw = document.getElementById('hkidInput').value;
+  const masked = maskHKID(raw);
+  const hint = document.getElementById('hkidHint');
+  if (!raw) {
+    hint.textContent = '系統只會儲存遮蔽版本（例：A123***(7)），完整號碼不會儲存';
+    hint.style.color = '#3a4255';
+  } else if (masked) {
+    hint.textContent = '✅ 將儲存為：' + masked;
+    hint.style.color = '#22c55e';
+  } else {
+    hint.textContent = '⚠️ 格式不正確，請輸入如 A123456(7)';
+    hint.style.color = '#e05c5c';
+  }
+  document.getElementById('submitBtn').disabled =
+    !(document.getElementById('agreeCheck').checked && hasSig && masked);
 }
 
 function initCanvas() {
@@ -415,6 +442,7 @@ async function doSubmit() {
       },
       body: JSON.stringify({
         employee_id: emp.id,
+        hkid_masked: maskHKID(document.getElementById('hkidInput').value),
         signed_at: signedAt,
         signature_data: sigURL,
         valid_until: validUntil.toISOString().slice(0, 10),
@@ -533,7 +561,7 @@ async function buildPDF(name, rec, btn) {
 
     '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:26px">' +
       '<tr><td style="padding:8px 0;color:#666;width:120px">員工姓名</td><td style="padding:8px 0;font-weight:700;font-size:16px">' + name + '</td></tr>' +
-      '<tr><td style="padding:8px 0;color:#666">身份證號碼</td><td style="padding:8px 0;color:#999">＿＿＿＿＿＿＿＿</td></tr>' +
+      '<tr><td style="padding:8px 0;color:#666">身份證號碼</td><td style="padding:8px 0;font-weight:600">' + (rec.hkid_masked || '＿＿＿＿＿＿＿＿') + '</td></tr>' +
       '<tr><td style="padding:8px 0;color:#666">簽署日期</td><td style="padding:8px 0;font-weight:600">' + signedISO.slice(0, 10) + '　' + signedISO.slice(11, 16) + ' HKT</td></tr>' +
       '<tr><td style="padding:8px 0;color:#666">有效期至</td><td style="padding:8px 0;font-weight:700;color:#b8860b">' + validUntil + '</td></tr>' +
       '<tr><td style="padding:8px 0;color:#666">文件版本</td><td style="padding:8px 0">' + (rec.document_version || '2026-09-02') + '</td></tr>' +
